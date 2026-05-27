@@ -131,6 +131,7 @@ All data operates under the `multiplication_mastery_` prefix:
 The primary MCQ Practice Mode uses a highly optimized countdown mechanism:
 - Displays a **GO** check button first. Once clicked, the timer records `Date.now()`.
 - Starts a 50ms interval loop to update the horizontal burndown bar width and active color.
+- **Visual Separation**: The live countdown XP status is displayed in a dedicated status slot (`.mcq-timer-status` / `#mcq-timer-status`) positioned near the burndown timer. This ensures that the primary feedback/educational hints container (`.feedback-box` / `#mcq-feedback`) remains completely independent and is not overwritten by subsequent timer ticks when displaying mistakes.
 - **Mistake Override**: If a wrong answer is clicked:
   - Sets `this.hasMadeMistake = true`.
   - Clears the interval (`this.cleanup()`).
