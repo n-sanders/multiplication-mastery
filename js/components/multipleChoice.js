@@ -15,6 +15,7 @@ export class MCQPracticeMode {
         this.choices = [];
         this.startTime = 0;
         this.hasAnswered = false;
+        this.hasMadeMistake = false;
         this.timerInterval = null;
     }
 
@@ -37,6 +38,7 @@ export class MCQPracticeMode {
         this.currentFact = selectAdaptiveFact();
         this.choices = generateChoices(this.currentFact.a, this.currentFact.b);
         this.hasAnswered = false;
+        this.hasMadeMistake = false;
 
         // Render the pre-question "GO" Ready Screen
         this.renderGoScreen();
@@ -113,6 +115,9 @@ export class MCQPracticeMode {
                 <div class="burndown-container" title="XP Burndown Meter">
                     <div class="burndown-bar" id="burndown-timer" style="width: 100%;"></div>
                 </div>
+                <div class="mcq-timer-status" id="mcq-timer-status">
+                    ⚡ Double speed! Solve now for <strong style="color: var(--color-warning);">15 XP</strong>!
+                </div>
 
                 <!-- Answer Choices Grid -->
                 <div class="choices-grid" id="mcq-choices">
@@ -124,9 +129,7 @@ export class MCQPracticeMode {
                 </div>
 
                 <!-- Feedback & Hints Column -->
-                <div class="feedback-box" id="mcq-feedback">
-                    ⚡ Worth 15 XP! Solve quickly!
-                </div>
+                <div class="feedback-box" id="mcq-feedback"></div>
             </div>
         `;
 
@@ -135,8 +138,8 @@ export class MCQPracticeMode {
 
     updateBurndownTimer() {
         const bar = this.container.querySelector('#burndown-timer');
-        const feedbackBox = this.container.querySelector('#mcq-feedback');
-        if (!bar || this.hasAnswered) return;
+        const timerStatus = this.container.querySelector('#mcq-timer-status');
+        if (!bar || this.hasAnswered || this.hasMadeMistake) return;
 
         const elapsedSec = (Date.now() - this.startTime) / 1000;
         
@@ -149,16 +152,16 @@ export class MCQPracticeMode {
         // Style/Color and XP message transitions in real-time
         if (elapsedSec <= 5) {
             bar.style.backgroundColor = 'var(--color-success)'; // green
-            if (feedbackBox) feedbackBox.innerHTML = `⚡ Double speed! Solve now for <strong style="color: var(--color-warning);">15 XP</strong>!`;
+            if (timerStatus) timerStatus.innerHTML = `⚡ Double speed! Solve now for <strong style="color: var(--color-warning);">15 XP</strong>!`;
         } else if (elapsedSec <= 15) {
             bar.style.backgroundColor = 'var(--color-warning)'; // yellow
-            if (feedbackBox) feedbackBox.innerHTML = `⏱️ Worth <strong style="color: var(--color-warning);">10 XP</strong>. Keep focusing!`;
+            if (timerStatus) timerStatus.innerHTML = `⏱️ Worth <strong style="color: var(--color-warning);">10 XP</strong>. Keep focusing!`;
         } else if (elapsedSec <= 25) {
             bar.style.backgroundColor = '#ff7849'; // orange
-            if (feedbackBox) feedbackBox.innerHTML = `🔍 Clock ticking... Worth <strong style="color: var(--color-warning);">5 XP</strong>!`;
+            if (timerStatus) timerStatus.innerHTML = `🔍 Clock ticking... Worth <strong style="color: var(--color-warning);">5 XP</strong>!`;
         } else {
             bar.style.backgroundColor = 'var(--color-danger)'; // red
-            if (feedbackBox) feedbackBox.innerHTML = `💡 Minimum XP tier reached: Worth <strong style="color: var(--color-warning);">3 XP</strong>. You can do it!`;
+            if (timerStatus) timerStatus.innerHTML = `💡 Minimum XP tier reached: Worth <strong style="color: var(--color-warning);">3 XP</strong>. You can do it!`;
         }
     }
 
@@ -220,18 +223,23 @@ export class MCQPracticeMode {
                     let xpToAward = 15;
                     let speedText = '';
                     
-                    if (elapsedSec <= 5) {
-                        xpToAward = 15;
-                        speedText = '⚡ Super Fast! ';
-                    } else if (elapsedSec <= 15) {
-                        xpToAward = 10;
-                        speedText = '✨ Nice work! ';
-                    } else if (elapsedSec <= 25) {
-                        xpToAward = 5;
-                        speedText = '👍 Correct! ';
+                    if (this.hasMadeMistake) {
+                        xpToAward = 1;
+                        speedText = '🌟 You found it! ';
                     } else {
-                        xpToAward = 3;
-                        speedText = '🌟 You did it! ';
+                        if (elapsedSec <= 5) {
+                            xpToAward = 15;
+                            speedText = '⚡ Super Fast! ';
+                        } else if (elapsedSec <= 15) {
+                            xpToAward = 10;
+                            speedText = '✨ Nice work! ';
+                        } else if (elapsedSec <= 25) {
+                            xpToAward = 5;
+                            speedText = '👍 Correct! ';
+                        } else {
+                            xpToAward = 3;
+                            speedText = '🌟 You did it! ';
+                        }
                     }
 
                     const xpAwardDetails = awardXP(xpToAward);
@@ -286,11 +294,19 @@ export class MCQPracticeMode {
                     // Allow clicking other buttons by leaving hasAnswered false!
                     this.hasAnswered = false; 
                     
-                    // Resume the timer for a lower score tier if they make a mistake!
-                    this.startTime = Date.now() - responseTimeMs; // keep elapsed speed running
-                    this.timerInterval = setInterval(() => {
-                        this.updateBurndownTimer();
-                    }, 50);
+                    // NEW REQUIREMENT: Stop the timer and change the XP available to earn as just 1 XP
+                    this.hasMadeMistake = true;
+                    this.cleanup(); // stop the burndown timer interval ticks
+                    
+                    const bar = this.container.querySelector('#burndown-timer');
+                    const timerStatus = this.container.querySelector('#mcq-timer-status');
+                    if (bar) {
+                        bar.style.width = '0%';
+                        bar.style.backgroundColor = 'var(--color-danger)';
+                    }
+                    if (timerStatus) {
+                        timerStatus.innerHTML = `⚠️ Mistake made. Worth <strong style="color: var(--color-warning);">1 XP</strong>. Find the correct answer!`;
+                    }
                 }
             });
         });

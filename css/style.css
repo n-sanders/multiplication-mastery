@@ -1802,6 +1802,22 @@ html {
     transition: width 0.1s linear, background-color 0.3s ease;
 }
 
+.mcq-timer-status {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 10px;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: color var(--transition-fast);
+}
+
+
 /* --- Interactive Grid Intro Staging --- */
 .table-cell.cell-intro-phase {
     background: rgba(6, 182, 212, 0.12) !important;
