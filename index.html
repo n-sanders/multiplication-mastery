@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Multiplication Mastery! 🚀</title>
+    <!-- Google Fonts: Outfit for premium modern round UI, Fredoka for ultra-friendly numbers/headers -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Main Style Sheet -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="theme-default">
+    <div class="app-container">
+        <!-- Floating Particle Canvas (For continuous cosmic/bubble ambient background or confetti) -->
+        <canvas id="ambient-canvas" class="ambient-canvas"></canvas>
+
+        <!-- Dynamic Header / Top Bar (Navigation & Profile Stats) -->
+        <header id="app-header" class="glass-panel">
+            <!-- Rendered dynamically by js/components/navigation.js -->
+        </header>
+
+        <!-- Main Workspace Area -->
+        <main id="app-main" class="main-content">
+            <div id="mode-container" class="mode-container">
+                <!-- Rendered dynamically based on selected mode -->
+            </div>
+        </main>
+
+        <!-- Splash Overlays (Confetti, Level Up, Milestone Badges) -->
+        <div id="level-up-modal" class="modal-overlay hidden">
+            <div class="modal-card glass-panel animate-pop">
+                <div class="modal-glow"></div>
+                <div class="modal-header">
+                    <span class="modal-badge-icon">🏆</span>
+                    <h2>LEVEL UP!</h2>
+                </div>
+                <div class="modal-body">
+                    <p class="congrats-text">Spectacular job! You reached Level <span id="level-up-num">2</span>!</p>
+                    <div class="unlocked-factor-container">
+                        <span class="unlocked-label">UNLOCKED FACTOR:</span>
+                        <span id="unlocked-factor-badge" class="factor-badge">x10</span>
+                    </div>
+                    <p class="modal-tip">You can now practice these new facts in all modes and see them in the grid!</p>
+                </div>
+                <div class="modal-footer">
+                    <button id="level-up-close-btn" class="primary-btn ripple-btn">Let's Go! 🚀</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Confetti Canvas Overlay -->
+        <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
+    </div>
+
+    <!-- Application Initialization Script -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
