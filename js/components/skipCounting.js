@@ -4,7 +4,7 @@
    displays dot arrays, and bridges skip counting to multiplication concepts.
    ========================================================================== */
 
-import { loadProfile, getUnlockedFactors, awardXP } from '../storage.js';
+import { loadProfile, getUnlockedFactors, awardXP, isFactorCertified, recordSkipCountingIntro } from '../storage.js';
 
 export class SkipCountingMode {
     constructor(containerId, onStatsUpdatedCallback) {
@@ -38,17 +38,36 @@ export class SkipCountingMode {
                 <div class="skip-setup">
                     <h2 class="setup-title">🎈 Select a Skip Counting Number!</h2>
                     <p style="font-size: 13px; color: var(--text-secondary); text-align: center; margin-bottom: 12px;">
-                        Unlock larger numbers by leveling up! Each completes a visual multiplication array.
+                        Complete the sequence <strong>3 times</strong> and solve <strong>15 flashcards</strong> to certify!
                     </p>
                     <div class="skip-grid">
                         ${allFactors.map(f => {
                             const isUnlocked = unlockedFactors.includes(f);
+                            const isCertified = isFactorCertified(f);
+                            
+                            let subtext = '';
+                            let extraClass = '';
+                            
+                            if (!isUnlocked) {
+                                subtext = 'Locked';
+                                extraClass = 'locked';
+                            } else if (isCertified) {
+                                subtext = '🎓 Certified';
+                                extraClass = 'certified';
+                            } else {
+                                const progressObj = profile.introProgress?.[f] || { skipCountingCount: 0 };
+                                subtext = `📚 ${progressObj.skipCountingCount}/3`;
+                                extraClass = 'intro-phase';
+                            }
+
                             return `
-                                <button class="skip-number-btn ${isUnlocked ? '' : 'locked'}" 
+                                <button class="skip-number-btn ${extraClass}" 
                                         data-factor="${f}" 
                                         ${isUnlocked ? '' : 'disabled'}
+                                        style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 80px;"
                                         title="${isUnlocked ? `Practice counting by ${f}s!` : `Locked: Reach a higher level to unlock ${f}s`}">
-                                    ${isUnlocked ? `${f}` : `🔒`}
+                                    <span style="font-size: 24px; font-weight: 700;">${isUnlocked ? f : '🔒'}</span>
+                                    <span style="font-size: 10px; font-weight: 500; opacity: 0.85;">${subtext}</span>
                                 </button>
                             `;
                         }).join('')}
@@ -258,7 +277,15 @@ export class SkipCountingMode {
                 targetBubble.className = 'skip-bubble completed-success';
                 
                 // Award 1 XP for skip counting step completed
-                const xpDetails = awardXP(1);
+                let xpDetails = awardXP(1);
+                
+                // Record skip counting completion in storage introProgress!
+                const certDetails = recordSkipCountingIntro(this.selectedFactor);
+                if (certDetails.newlyCertified) {
+                    xpDetails.newlyCertified = true;
+                    xpDetails.factorCertified = this.selectedFactor;
+                }
+                
                 this.onStatsUpdated(xpDetails);
                 
                 // Trigger floaty text

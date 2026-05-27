@@ -4,7 +4,7 @@
    interactive color-coded $15 \times 15$ multiplication mastery matrix.
    ========================================================================== */
 
-import { loadProfile, loadFactData, getUnlockedFactors, BADGE_LIST, resetAllData } from '../storage.js';
+import { loadProfile, loadFactData, getUnlockedFactors, BADGE_LIST, resetAllData, isFactorCertified } from '../storage.js';
 
 export class ProgressDashboard {
     constructor(containerId) {
@@ -29,12 +29,12 @@ export class ProgressDashboard {
                         <div class="grid-title-info">
                             <span class="grid-title">🎯 15×15 Mastery Matrix</span>
                             <span style="font-size: 12px; color: var(--text-secondary);">
-                                Touch cells to view details. Gain XP to unlock gray locked factors!
+                                Touch cells to view details. Complete Intro Phase goals (📖) to certfy factors!
                             </span>
                         </div>
                         
                         <!-- Legend keys -->
-                        <div class="grid-legend">
+                        <div class="grid-legend" style="flex-wrap: wrap; gap: 8px 12px;">
                             <div class="legend-item">
                                 <span class="legend-color" style="background: rgba(251, 191, 36, 0.6); border: 1px solid #fbbf24;"></span> Mastered (≥80%)
                             </div>
@@ -43,6 +43,9 @@ export class ProgressDashboard {
                             </div>
                             <div class="legend-item">
                                 <span class="legend-color" style="background: rgba(244, 63, 94, 0.3); border: 1px solid #f43f5e;"></span> Needs Practice (&lt;40%)
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: rgba(6, 182, 212, 0.1); border: 1px dashed rgba(6, 182, 212, 0.7);"></span> Intro Phase 📖
                             </div>
                             <div class="legend-item">
                                 <span class="legend-color" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);"></span> Locked 🔒
@@ -154,42 +157,45 @@ export class ProgressDashboard {
     }
 
     calculateDashboardMetrics(unlockedFactors, factData) {
-        let totalUnlockedCount = 0;
+        let totalCertifiedCount = 0;
         let sumMastery = 0;
         let masteredCount = 0;
         const allUnlockedFacts = [];
 
-        // Traverse unlocked facts to gather lists
+        // Traverse all unlocked facts to gather lists
         for (let i = 1; i <= 15; i++) {
             for (let j = 1; j <= 15; j++) {
                 const isUnlocked = unlockedFactors.includes(i) && unlockedFactors.includes(j);
                 if (isUnlocked) {
-                    totalUnlockedCount++;
                     const key = `${i}x${j}`;
                     const mastery = factData[key]?.mastery || 0;
-                    sumMastery += mastery;
                     
-                    if (mastery >= 80) masteredCount++;
+                    // We only count certified facts in the high metrics
+                    const isCertified = isFactorCertified(i) && isFactorCertified(j);
+                    if (isCertified) {
+                        totalCertifiedCount++;
+                        sumMastery += mastery;
+                        if (mastery >= 80) masteredCount++;
+                    }
                     
-                    allUnlockedFacts.push({ a: i, b: j, key, mastery });
+                    allUnlockedFacts.push({ a: i, b: j, key, mastery, isCertified });
                 }
             }
         }
 
-        const overallMasteryPercent = totalUnlockedCount > 0 
-            ? Math.round(sumMastery / totalUnlockedCount) 
+        const overallMasteryPercent = totalCertifiedCount > 0 
+            ? Math.round(sumMastery / totalCertifiedCount) 
             : 0;
 
-        // Sort to find strongest and weakest
-        // filter facts that have actually been practiced (correct count > 0 or wrong count > 0)
-        const practicedFacts = allUnlockedFacts.filter(f => factData[f.key]?.correctCount > 0 || factData[f.key]?.incorrectCount > 0);
+        // Sort to find strongest and weakest of certified pool
+        const certifiedFacts = allUnlockedFacts.filter(f => f.isCertified);
+        const practicedFacts = certifiedFacts.filter(f => factData[f.key]?.correctCount > 0 || factData[f.key]?.incorrectCount > 0);
         
         const strongest = [...practicedFacts]
             .sort((x, y) => y.mastery - x.mastery)
             .slice(0, 5);
 
-        // For focus list (weakest), prioritize facts practiced that are low, or facts unlocked that are unpracticed!
-        const weakest = [...allUnlockedFacts]
+        const weakest = [...certifiedFacts]
             .sort((x, y) => x.mastery - y.mastery)
             .slice(0, 5);
 
@@ -239,15 +245,22 @@ export class ProgressDashboard {
                         cell.className = 'table-cell cell-locked';
                         cell.innerText = '';
                     } else {
-                        const mastery = factData[key]?.mastery || 0;
+                        // Check if certified
+                        const isCertified = isFactorCertified(row) && isFactorCertified(col);
                         cell.innerText = row * col;
                         
-                        if (mastery >= 80) {
-                            cell.className = 'table-cell cell-mastered';
-                        } else if (mastery >= 40) {
-                            cell.className = 'table-cell cell-improving';
+                        if (!isCertified) {
+                            cell.className = 'table-cell cell-intro-phase';
                         } else {
-                            cell.className = 'table-cell cell-needs-practice';
+                            const mastery = factData[key]?.mastery || 0;
+                            
+                            if (mastery >= 80) {
+                                cell.className = 'table-cell cell-mastered';
+                            } else if (mastery >= 40) {
+                                cell.className = 'table-cell cell-improving';
+                            } else {
+                                cell.className = 'table-cell cell-needs-practice';
+                            }
                         }
                     }
 
@@ -299,7 +312,6 @@ export class ProgressDashboard {
         if (!isUnlocked) {
             // Find which XP/Level threshold unlocks this cell!
             // Fact requires BOTH row and col to be unlocked.
-            // Let's find the minimum level that contains both row and col!
             const requiredLevel = this.getLevelRequiredForFact(row, col);
             
             detailElement.innerHTML = `
@@ -313,56 +325,70 @@ export class ProgressDashboard {
                 </div>
             `;
         } else {
-            const factData = loadFactData();
-            const key = `${row}x${col}`;
-            const data = factData[key] || { mastery: 0, correctCount: 0, incorrectCount: 0, averageResponseTimeMs: 0 };
+            // Check if BOTH factors are certified
+            const isCertified = isFactorCertified(row) && isFactorCertified(col);
             
-            const totalPracticed = data.correctCount + data.incorrectCount;
-            const accuracy = totalPracticed > 0 
-                ? Math.round((data.correctCount / totalPracticed) * 100) 
-                : 0;
-            const speedSec = data.averageResponseTimeMs > 0 
-                ? `${(data.averageResponseTimeMs / 1000).toFixed(1)} seconds` 
-                : 'Not recorded';
+            if (!isCertified) {
+                // CONCEPT PHASE DISPLAY: Renders detailed requirements for the uncertified factors!
+                const profile = loadProfile();
+                const uncertifiedFactors = [];
+                if (!isFactorCertified(row)) uncertifiedFactors.push(row);
+                if (!isFactorCertified(col) && col !== row) uncertifiedFactors.push(col);
 
-            detailElement.innerHTML = `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <div>
-                        <div class="tooltip-eq">${row} × ${col} = ${row * col}</div>
-                        <div class="tooltip-stats" style="margin-top: 4px;">
-                            Mastery Score: <strong style="color: var(--color-warning);">${data.mastery}%</strong>
+                detailElement.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 6px; width: 100%;">
+                        <div class="tooltip-eq" style="color: #06b6d4;">📖 Concept Phase: ${row} × ${col} = ${row * col}</div>
+                        <div class="tooltip-stats" style="font-size: 12px; line-height: 1.4;">
+                            To certify this fact and mix it into MCQ Practice/Timed Challenges, complete introductory goals for:
+                            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px;">
+                                ${uncertifiedFactors.map(f => {
+                                    const progressObj = profile.introProgress?.[f] || { skipCountingCount: 0, flashcardsCorrectCount: 0 };
+                                    return `
+                                        <div style="background: rgba(6, 182, 212, 0.08); border: 1px dashed rgba(6, 182, 212, 0.3); padding: 6px 12px; border-radius: 8px;">
+                                            <strong>${f}s Table Progress:</strong><br>
+                                            ➔ Skip Counting: <span style="color: var(--color-warning);">${progressObj.skipCountingCount} / 3 sessions done</span> ${progressObj.skipCountingCount >= 3 ? '✅' : ''}<br>
+                                            ➔ Targeted Flashcards: <span style="color: var(--color-warning);">${progressObj.flashcardsCorrectCount} / 15 cards solved</span> ${progressObj.flashcardsCorrectCount >= 15 ? '✅' : ''}
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
                         </div>
                     </div>
-                    <div style="font-size: 12px; color: var(--text-secondary); border-left: 1px solid rgba(255,255,255,0.1); padding-left: 12px;">
-                        📊 Solved: ${totalPracticed} times<br>
-                        🎯 Accuracy: ${accuracy}% (${data.correctCount} correct, ${data.incorrectCount} wrong)<br>
-                        ⚡ Speed: ${speedSec}
+                `;
+            } else {
+                // Certified Fact Stats Inspection
+                const factData = loadFactData();
+                const key = `${row}x${col}`;
+                const data = factData[key] || { mastery: 0, correctCount: 0, incorrectCount: 0, averageResponseTimeMs: 0 };
+                
+                const totalPracticed = data.correctCount + data.incorrectCount;
+                const accuracy = totalPracticed > 0 
+                    ? Math.round((data.correctCount / totalPracticed) * 100) 
+                    : 0;
+                const speedSec = data.averageResponseTimeMs > 0 
+                    ? `${(data.averageResponseTimeMs / 1000).toFixed(1)} seconds` 
+                    : 'Not recorded';
+
+                detailElement.innerHTML = `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div>
+                            <div class="tooltip-eq">${row} × ${col} = ${row * col}</div>
+                            <div class="tooltip-stats" style="margin-top: 4px;">
+                                Mastery Score: <strong style="color: var(--color-warning);">${data.mastery}%</strong>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); border-left: 1px solid rgba(255,255,255,0.1); padding-left: 12px;">
+                            📊 Solved: ${totalPracticed} times<br>
+                            🎯 Accuracy: ${accuracy}% (${data.correctCount} correct, ${data.incorrectCount} wrong)<br>
+                            ⚡ Speed: ${speedSec}
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
         }
     }
 
     getLevelRequiredForFact(a, b) {
-        // Unlocked thresholds list mapping
-        // We find the first level threshold where BOTH a and b exist in the list!
-        import('../storage.js').then((storageModule) => {
-            // dynamic import failsafe
-        });
-        
-        // Direct thresholds matching:
-        // Level 1: 1-5
-        // Level 2: +10
-        // Level 3: +9
-        // Level 4: +6
-        // Level 5: +7
-        // Level 6: +8
-        // Level 7: +11
-        // Level 8: +12
-        // Level 9: +13
-        // Level 10: +14
-        // Level 11: +15
-        
         const getFactorIntroLevel = (n) => {
             if (n >= 1 && n <= 5) return 1;
             if (n === 10) return 2;

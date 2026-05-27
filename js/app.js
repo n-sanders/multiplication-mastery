@@ -72,6 +72,11 @@ class ApplicationController {
             if (xpDetails && xpDetails.levelUp) {
                 this.triggerLevelUpCelebration(xpDetails.newLevel, xpDetails.unlockedFactor);
             }
+            
+            // Check for new factor certifications celebration overlays!
+            if (xpDetails && xpDetails.newlyCertified) {
+                this.triggerCertificationCelebration(xpDetails.factorCertified);
+            }
         };
 
         switch (modeId) {
@@ -105,6 +110,15 @@ class ApplicationController {
             modal.classList.add('hidden');
             this.stopConfetti();
         });
+
+        // Certification modal close button bindings
+        const certCloseBtn = document.getElementById('certification-close-btn');
+        const certModal = document.getElementById('certification-modal');
+
+        certCloseBtn.addEventListener('click', () => {
+            certModal.classList.add('hidden');
+            this.stopConfetti();
+        });
     }
 
     triggerLevelUpCelebration(newLvl, unlockedFactor) {
@@ -115,6 +129,20 @@ class ApplicationController {
         lvlSpan.innerText = newLvl;
         factorBadge.innerText = `×${unlockedFactor}`;
         
+        modal.classList.remove('hidden');
+
+        // Spawns exciting reward confetti canvas
+        this.startConfetti();
+    }
+
+    triggerCertificationCelebration(factor) {
+        const modal = document.getElementById('certification-modal');
+        const numSpan = document.getElementById('certified-factor-num');
+        const badgeSpan = document.getElementById('certified-factor-badge');
+
+        numSpan.innerText = `${factor}s`;
+        badgeSpan.innerText = `x${factor}`;
+
         modal.classList.remove('hidden');
 
         // Spawns exciting reward confetti canvas

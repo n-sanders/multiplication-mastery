@@ -19,7 +19,9 @@ const DEFAULT_PROFILE = {
     currentStreak: 0,
     highestStreak: 0,
     lastActiveDate: '',
-    unlockedBadges: []
+    unlockedBadges: [],
+    certifiedFactors: [1, 2, 3, 4, 5],
+    introProgress: {}
 };
 
 // XP progression definitions & factors unlocked at each level
@@ -294,3 +296,109 @@ function checkBadges(profile) {
     
     return unlocked;
 }
+
+/* --- Certification Advancement Functions --- */
+
+/**
+ * Checks if a factor is certified (fluent) for MCQ and Timed Challenge pools.
+ */
+export function isFactorCertified(factor) {
+    const profile = loadProfile();
+    const num = parseInt(factor, 10);
+    // Factors 1..5 are certified by default
+    if (num >= 1 && num <= 5) return true;
+    
+    if (!profile.certifiedFactors) {
+        return false;
+    }
+    return profile.certifiedFactors.includes(num);
+}
+
+/**
+ * Helper to initialize introProgress dictionary securely
+ */
+function initIntroProgress(profile, factor) {
+    const key = String(factor);
+    if (!profile.introProgress) profile.introProgress = {};
+    if (!profile.introProgress[key]) {
+        profile.introProgress[key] = {
+            skipCountingCount: 0,
+            flashcardsCorrectCount: 0
+        };
+    }
+}
+
+/**
+ * Record a completed skip counting session for factor N.
+ * Target: 3 times.
+ * Returns { certified, newlyCertified, progress }
+ */
+export function recordSkipCountingIntro(factor) {
+    const profile = loadProfile();
+    const num = parseInt(factor, 10);
+    if (isFactorCertified(num)) return { certified: true, newlyCertified: false };
+    
+    initIntroProgress(profile, num);
+    const key = String(num);
+    
+    profile.introProgress[key].skipCountingCount += 1;
+    
+    const newlyCertified = checkAndCertify(profile, num);
+    saveProfile(profile);
+    
+    return {
+        certified: profile.certifiedFactors.includes(num),
+        newlyCertified,
+        skipCountingCount: profile.introProgress[key].skipCountingCount,
+        flashcardsCorrectCount: profile.introProgress[key].flashcardsCorrectCount
+    };
+}
+
+/**
+ * Record a correct flashcard answer for factor N.
+ * Target: 15 times.
+ * Returns { certified, newlyCertified, progress }
+ */
+export function recordFlashcardIntro(factor) {
+    const profile = loadProfile();
+    const num = parseInt(factor, 10);
+    if (isFactorCertified(num)) return { certified: true, newlyCertified: false };
+    
+    initIntroProgress(profile, num);
+    const key = String(num);
+    
+    profile.introProgress[key].flashcardsCorrectCount += 1;
+    
+    const newlyCertified = checkAndCertify(profile, num);
+    saveProfile(profile);
+    
+    return {
+        certified: profile.certifiedFactors.includes(num),
+        newlyCertified,
+        skipCountingCount: profile.introProgress[key].skipCountingCount,
+        flashcardsCorrectCount: profile.introProgress[key].flashcardsCorrectCount
+    };
+}
+
+/**
+ * Check if the intro goals (3 skip counts AND 15 flashcards solved) are met,
+ * certifying the factor if true.
+ */
+function checkAndCertify(profile, factor) {
+    const num = parseInt(factor, 10);
+    initIntroProgress(profile, num);
+    const key = String(num);
+    const progress = profile.introProgress[key];
+    
+    if (progress.skipCountingCount >= 3 && progress.flashcardsCorrectCount >= 15) {
+        if (!profile.certifiedFactors) {
+            profile.certifiedFactors = [1, 2, 3, 4, 5];
+        }
+        if (!profile.certifiedFactors.includes(num)) {
+            profile.certifiedFactors.push(num);
+            return true; // Newly Certified!
+        }
+    }
+    return false;
+}
+

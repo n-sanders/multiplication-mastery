@@ -11,17 +11,15 @@ import { loadProfile, loadFactData, saveFactData, getUnlockedFactors } from './s
  */
 export function getUnlockedFactsList() {
     const profile = loadProfile();
-    const unlockedFactors = getUnlockedFactors(profile.level);
+    const certified = profile.certifiedFactors || [1, 2, 3, 4, 5];
     const list = [];
     
-    // Generate all pairs from the active unlocked factors
-    for (let i = 0; i < unlockedFactors.length; i++) {
-        for (let j = 0; j < unlockedFactors.length; j++) {
-            const a = unlockedFactors[i];
-            const b = unlockedFactors[j];
+    // Generate all pairs from the certified factors (must be both certified)
+    for (let i = 0; i < certified.length; i++) {
+        for (let j = 0; j < certified.length; j++) {
+            const a = certified[i];
+            const b = certified[j];
             
-            // To prevent duplicate keys since AxB and BxA are different facts,
-            // we track them independently (as requested: "each fact has an independent mastery score")
             list.push({
                 a,
                 b,
