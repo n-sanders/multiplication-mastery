@@ -43,7 +43,7 @@ export class FlashcardMode {
         const allFactors = Array.from({ length: 15 }, (_, i) => i + 1);
 
         this.container.innerHTML = `
-            <div class="practice-card glass-panel animate-pop" style="max-width: 600px;">
+            <div class="practice-card glass-panel" style="max-width: 600px;">
                 <h2 style="font-family: 'Fredoka', sans-serif; font-size: 24px; text-align: center; margin-bottom: 4px;">
                     🎴 Select a Flashcard Deck!
                 </h2>
@@ -92,7 +92,7 @@ export class FlashcardMode {
                             <button class="skip-number-btn ${extraClass} targeted-deck-btn ${isSelected ? 'selected' : ''}"
                                     data-factor="${f}" 
                                     ${isUnlocked ? '' : 'disabled'}
-                                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 80px; ${isSelected ? 'outline: 3px solid var(--color-warning); transform: scale(1.04);' : ''}"
+                                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 80px; ${isSelected ? 'outline: 3px solid var(--color-warning);' : ''}"
                                     title="${isUnlocked ? `Add ${f}s to your custom deck mix!` : `Locked: Reach a higher level to unlock ${f}s`}">
                                 <span style="font-size: 24px; font-weight: 700;">${isUnlocked ? f : '🔒'}</span>
                                 <span style="font-size: 10px; font-weight: 500; opacity: 0.85;">${subtext}</span>
