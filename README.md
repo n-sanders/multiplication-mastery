@@ -55,6 +55,7 @@ Builds mental endurance and tests overall fluency.
 Encourages traditional memory recall.
 - Cards flip with a smooth **3D css rotateY transition** when tapped.
 - Self-graded buttons: *"I Knew It! 👍"* (awards **1 XP**) vs *"I Missed It 🧐"*.
+- Students can select one targeted deck or two targeted decks to practice mixed together before starting a flashcard session.
 - **Adaptive Re-queue**: Missed cards are put into a session queue and have a 45% probability of loading next, reinforcing weak spots quickly.
 
 ---
