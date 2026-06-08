@@ -16,6 +16,7 @@ export class FlashcardMode {
         // Deck routing state
         this.deckMode = null;       // null (selection screen), 'mixed', 'targeted'
         this.targetFactor = null;   // e.g. 10 if targeted
+        this.selectedDeckFactors = []; // up to two targeted decks to mix together
         
         // Active card state
         this.currentFact = null;
@@ -47,7 +48,7 @@ export class FlashcardMode {
                     🎴 Select a Flashcard Deck!
                 </h2>
                 <p style="font-size: 13px; color: var(--text-secondary); text-align: center; margin-bottom: 16px;">
-                    Practice all certified facts together, or select a targeted table to certify!
+                    Practice all certified facts together, or choose one or two targeted tables to certify!
                 </p>
 
                 <!-- Mixed Practice option -->
@@ -59,6 +60,10 @@ export class FlashcardMode {
                 <h3 style="font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700; align-self: flex-start; margin-bottom: 10px; color: var(--text-secondary); text-transform: uppercase;">
                     🎯 Targeted Fact Families
                 </h3>
+
+                <p style="font-size: 12px; color: var(--text-secondary); align-self: flex-start; margin-bottom: 10px;">
+                    Pick up to two decks, then start a custom mixed practice session. Choosing a third swaps out the oldest pick.
+                </p>
 
                 <!-- Unlocked Selector Grid -->
                 <div class="skip-grid" style="width: 100%;">
@@ -81,17 +86,30 @@ export class FlashcardMode {
                             extraClass = 'intro-phase';
                         }
 
+                        const isSelected = this.selectedDeckFactors.includes(f);
+
                         return `
-                            <button class="skip-number-btn ${extraClass} targeted-deck-btn" 
+                            <button class="skip-number-btn ${extraClass} targeted-deck-btn ${isSelected ? 'selected' : ''}"
                                     data-factor="${f}" 
                                     ${isUnlocked ? '' : 'disabled'}
-                                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 80px;"
-                                    title="${isUnlocked ? `Practice only ${f}s!` : `Locked: Reach a higher level to unlock ${f}s`}">
+                                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 80px; ${isSelected ? 'outline: 3px solid var(--color-warning); transform: scale(1.04);' : ''}"
+                                    title="${isUnlocked ? `Add ${f}s to your custom deck mix!` : `Locked: Reach a higher level to unlock ${f}s`}">
                                 <span style="font-size: 24px; font-weight: 700;">${isUnlocked ? f : '🔒'}</span>
                                 <span style="font-size: 10px; font-weight: 500; opacity: 0.85;">${subtext}</span>
                             </button>
                         `;
                     }).join('')}
+                </div>
+
+                <div style="width: 100%; margin-top: 16px; display: flex; flex-direction: column; gap: 10px;">
+                    <div id="selected-decks-status" style="font-size: 12px; color: var(--text-secondary); text-align: center; font-weight: 700;">
+                        ${this.getSelectedDeckStatusText()}
+                    </div>
+                    <button id="start-selected-decks-btn" class="primary-btn ripple-btn"
+                            ${this.selectedDeckFactors.length === 0 ? 'disabled' : ''}
+                            style="width: 100%; padding: 14px; font-size: 16px; border-radius: 16px; opacity: ${this.selectedDeckFactors.length === 0 ? '0.5' : '1'};">
+                        ${this.getStartSelectedDecksButtonText()}
+                    </button>
                 </div>
             </div>
         `;
@@ -99,23 +117,64 @@ export class FlashcardMode {
         this.setupDeckSelectionListeners();
     }
 
+
+    getSelectedDeckStatusText() {
+        if (this.selectedDeckFactors.length === 0) {
+            return 'No targeted decks selected yet.';
+        }
+
+        const deckNames = this.selectedDeckFactors.map(f => `${f}s`).join(' + ');
+        return this.selectedDeckFactors.length === 1
+            ? `Selected: ${deckNames} deck`
+            : `Selected: ${deckNames} decks mixed together`;
+    }
+
+    getStartSelectedDecksButtonText() {
+        if (this.selectedDeckFactors.length === 0) {
+            return 'Select 1 or 2 Targeted Decks';
+        }
+
+        if (this.selectedDeckFactors.length === 1) {
+            return `Start ${this.selectedDeckFactors[0]}s Deck 🎯`;
+        }
+
+        return `Start Mixed ${this.selectedDeckFactors[0]}s + ${this.selectedDeckFactors[1]}s Decks 🔀`;
+    }
+
     setupDeckSelectionListeners() {
         const mixedBtn = this.container.querySelector('#mixed-deck-btn');
         const targetBtns = this.container.querySelectorAll('.targeted-deck-btn');
+        const startSelectedBtn = this.container.querySelector('#start-selected-decks-btn');
 
         mixedBtn.addEventListener('click', () => {
             this.deckMode = 'mixed';
             this.targetFactor = null;
+            this.selectedDeckFactors = [];
             this.loadNextCard();
         });
 
         targetBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 const factor = parseInt(btn.getAttribute('data-factor'), 10);
-                this.deckMode = 'targeted';
-                this.targetFactor = factor;
-                this.loadNextCard();
+
+                if (this.selectedDeckFactors.includes(factor)) {
+                    this.selectedDeckFactors = this.selectedDeckFactors.filter(selected => selected !== factor);
+                } else if (this.selectedDeckFactors.length < 2) {
+                    this.selectedDeckFactors = [...this.selectedDeckFactors, factor];
+                } else {
+                    this.selectedDeckFactors = [this.selectedDeckFactors[1], factor];
+                }
+
+                this.renderDeckSelection();
             });
+        });
+
+        startSelectedBtn.addEventListener('click', () => {
+            if (this.selectedDeckFactors.length === 0) return;
+
+            this.deckMode = 'targeted';
+            this.targetFactor = this.selectedDeckFactors[0];
+            this.loadNextCard();
         });
     }
 
@@ -125,19 +184,25 @@ export class FlashcardMode {
         
         if (this.deckMode === 'targeted') {
             // TARGETED FACT FAMILY GENERATION
-            // Select equations focusing exclusively on targetFactor (e.g. 10)
+            // Select equations focusing on one selected target deck at a time.
+            // When two decks are selected, randomly alternate between them so the
+            // student practices the two fact families mixed together.
             const unlockedFactors = getUnlockedFactors(profile.level);
-            // Choose a random factor K from the unlocked list
+            const activeTargets = this.selectedDeckFactors.length > 0
+                ? this.selectedDeckFactors
+                : [this.targetFactor];
+            const focusFactor = activeTargets[Math.floor(Math.random() * activeTargets.length)];
             const K = unlockedFactors[Math.floor(Math.random() * unlockedFactors.length)];
             
             // Randomly order factor A and factor B
             const coinFlip = Math.random() > 0.5;
-            const a = coinFlip ? this.targetFactor : K;
-            const b = coinFlip ? K : this.targetFactor;
+            const a = coinFlip ? focusFactor : K;
+            const b = coinFlip ? K : focusFactor;
             
             this.currentFact = {
                 a,
                 b,
+                focusFactor,
                 key: `${a}x${b}`
             };
         } else {
@@ -154,10 +219,22 @@ export class FlashcardMode {
         this.renderCardSkeleton();
     }
 
+
+    getActiveDeckTitle() {
+        if (this.deckMode !== 'targeted') {
+            return '📝 Mixed Certified Deck';
+        }
+
+        if (this.selectedDeckFactors.length > 1) {
+            return `🔀 Mixed Targeted Decks: ${this.selectedDeckFactors.map(f => `${f}s`).join(' + ')}`;
+        }
+
+        const factor = this.selectedDeckFactors[0] || this.targetFactor;
+        return `🎯 Targeted Deck: ${factor}s`;
+    }
+
     renderCardSkeleton() {
-        const deckTitle = this.deckMode === 'targeted' 
-            ? `🎯 targeted Deck: ${this.targetFactor}s` 
-            : `📝 Mixed certified Deck`;
+        const deckTitle = this.getActiveDeckTitle();
 
         this.container.innerHTML = `
             <div class="practice-card glass-panel animate-pop">
@@ -271,12 +348,13 @@ export class FlashcardMode {
 
             // Record targeted introductory progress if practicing targeted
             if (this.deckMode === 'targeted') {
-                const certDetails = recordFlashcardIntro(this.targetFactor);
+                const certTarget = this.currentFact.focusFactor || this.targetFactor;
+                const certDetails = recordFlashcardIntro(certTarget);
                 
                 // Check if factor certification criteria are now met!
                 if (certDetails.newlyCertified) {
                     xpDetails.newlyCertified = true;
-                    xpDetails.factorCertified = this.targetFactor;
+                    xpDetails.factorCertified = certTarget;
                 }
             }
 
